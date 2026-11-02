@@ -1,0 +1,32 @@
+name: 1A2X Daily Check-in
+
+on:
+  schedule:
+    # GitHub Actions cron 为 UTC：以下两行 = 北京时间 08:05 / 20:05
+    - cron: '5 0 * * *'
+    - cron: '5 12 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: 1a2x-checkin
+  cancel-in-progress: false
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run check-in
+        env:
+          A2X_COOKIE: ${{ secrets.A2X_COOKIE }}
+        run: python checkin.py
+
+      - name: Notify on failure
+        if: failure()
+        run: echo '签到失败：Cookie 可能已过期，请重新抓取并更新 Secret A2X_COOKIE'
