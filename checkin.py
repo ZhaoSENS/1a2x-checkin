@@ -109,11 +109,20 @@ def is_logged_in(html):
 
 
 def already_done(html):
-    return "今日已签到" in html
+    """双判据：文案命中，或签到按钮带 disabled（文案改版时仍能判定）。"""
+    if "今日已签到" in html or "已签到" in html:
+        return True
+    m = re.search(r'<form[^>]*class="[^"]*daily-checkin[^"]*".*?</form>', html, re.S)
+    if m:
+        form = m.group(0)
+        btn = re.search(r"<button[^>]*>", form)
+        if btn and "disabled" in btn.group(0):
+            return True
+    return False
 
 
 def bananas(html):
-    m = re.search(r'data-member-metric="bananas">.*?<dd>(\d+)</dd>', html, re.S)
+    m = re.search(r'data-member-metric="bananas"[^>]*>[^<]*(?:<(?!/?dl)[^>]*>[^<]*)*?<dd>(\d+)</dd>', html, re.S)
     return int(m.group(1)) if m else None
 
 

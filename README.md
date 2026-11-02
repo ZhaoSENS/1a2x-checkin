@@ -21,7 +21,8 @@
 ```
 1a2x-checkin/
 ├─ checkin.py                       # 签到主程序（仅标准库）
-├─ .github/workflows/checkin.yml    # 定时任务
+├─ debug_probe.py                   # 排障脚本，只读不改数据
+├─ .github/workflows/checkin.yml    # 定时任务 + 保活
 └─ README.md
 ```
 
@@ -73,7 +74,25 @@ Actions → **1A2X Daily Check-in** → Run workflow。
 [1a2x] 今日已签到，无需重复操作（当前香蕉：16）
 ```
 
-## 四、时间说明
+## 四、保活机制（重要）
+
+GitHub 的规则：仓库连续 **60 天没有任何提交**，所有 scheduled workflow 会被自动停用，
+**定时运行不算活动**。这会让签到在第 60 天悄悄失效且不报错。
+
+workflow 里的 `heartbeat` job 每天写一行时间戳到 `.keepalive` 并提交，
+让仓库始终有活动，schedule 不会被停用。它和签到 job 并行，互不影响。
+
+## 五、失败通知（可选）
+
+默认只在日志里打印一行提示。要真正收到通知，加一个 Secret：
+
+- Name: `NOTIFY_WEBHOOK`
+- Value: 你的机器人 webhook（企业微信 / 钉钉 / Bark 等）
+
+失败时会 POST 一条文本消息，内容「1A2X 签到失败：Cookie 可能已过期」。
+未配置该 Secret 时自动跳过，不影响签到。
+
+## 六、时间说明
 
 GitHub Actions 的 cron 是 **UTC**：
 
@@ -84,7 +103,7 @@ GitHub Actions 的 cron 是 **UTC**：
 
 脚本幂等，重复执行只提示「今日已签到」；双时段还能兜住 GitHub 调度延迟（高峰期 cron 常延迟 10~60 分钟）。
 
-## 五、退出码对照
+## 七、退出码对照
 
 | 码 | 含义 | 处理 |
 |---|---|---|
@@ -96,7 +115,7 @@ GitHub Actions 的 cron 是 **UTC**：
 | 6 | 表单 token 校验失败 | Cookie 过期 |
 | 7 | 请求成功但页面无签到标记 | 可能已被签到，人工看一眼 |
 
-## 六、Cookie 失效的常见原因
+## 八、Cookie 失效的常见原因
 
 1. 在浏览器点了「退出登录」——立刻使该 session 失效
 2. 站点清理会话（约 30 天）
@@ -105,7 +124,7 @@ GitHub Actions 的 cron 是 **UTC**：
 
 建议每周瞄一眼 Actions 运行记录。workflow 里已预留 `Notify on failure` 步骤，可替换为 Telegram / 企业微信 / Bark webhook。
 
-## 七、备选方案：Playwright（万一后续加了人机校验）
+## 九、备选方案：Playwright（万一后续加了人机校验）
 
 ```yaml
 - name: Install deps
@@ -121,6 +140,6 @@ GitHub Actions 的 cron 是 **UTC**：
 `checkin_browser.py` 要点：Cookie 逐条 `context.add_cookies()` 注入（`__Host-` 前缀要求 `secure=True`、`path="/"`、不填 domain），
 打开 `/growth`，`page.click('form.daily-checkin button:not([disabled])')`，等导航完成后判断文案。
 
-## 八、频率建议
+## 十、频率建议
 
 本方案每天 1~2 次，属于正常访问量级。
